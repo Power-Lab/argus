@@ -6,8 +6,9 @@ install:
 dry-run:            ## collect + per-source counts, no writes
 	python -m argus.run --dry-run
 
+# ARGS passes flags through, e.g. make run ARGS=--force while `enabled: false`
 run:                ## full pipeline (keyword mode unless a provider key is set)
-	python -m argus.run
+	python -m argus.run $(ARGS)
 
 collect:
 	python -m argus.run --stage collect

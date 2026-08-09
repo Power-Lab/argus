@@ -3,6 +3,16 @@
 #   * edit registry/sources.yaml (your queries, journals, feeds, keywords)
 #   * edit `tags` (your workstreams) and prompts/research.md (your profile+rubric)
 #   * pick a scoring provider below (several are free)
+# MASTER SWITCH. `false` means scheduled sweeps do nothing at all — no
+# collection, no scoring, no commit. A manual run of the pipeline workflow still
+# works, so you can try one without editing this.
+#
+# It ships OFF in the template on purpose: an unconfigured copy would otherwise
+# collect for the example field below, burn Actions minutes, and hand whatever
+# it gathered to the next person who uses the template as their starting data.
+# Turn it on once steps 1-3 of the README are done and your sources are yours.
+enabled: false
+
 title: "ARGUS"
 
 window_days: 7          # collectors ignore items older than this
