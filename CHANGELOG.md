@@ -9,6 +9,8 @@ publish a tag that disagrees with it.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-08-09
+
 ### Added
 
 - **A master switch: `enabled` in `config.yaml`.** `false` means scheduled
@@ -180,7 +182,8 @@ Initial internal version, under the name Pantau Research.
 - Opt-in Zotero library seeding — surfaces recent papers citing your library and
   new work by the authors you read most, via the read-only Zotero Web API.
 
-[Unreleased]: https://github.com/Power-Lab/argus/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/Power-Lab/argus/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/Power-Lab/argus/releases/tag/v1.4.0
 [1.3.0]: https://github.com/Power-Lab/argus/releases/tag/v1.3.0
 [1.2.0]: https://github.com/Power-Lab/argus/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Power-Lab/argus/releases/tag/v1.1.0
