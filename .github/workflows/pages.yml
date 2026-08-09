@@ -1,0 +1,76 @@
+# Publishes docs/ to GitHub Pages.
+#
+# Called directly by the pipeline (`uses: ./.github/workflows/pages.yml`) rather
+# than chained off it with `workflow_run`.
+#
+# `push:` can never see the sweep's own commit: GitHub does not trigger
+# workflows from a push made with GITHUB_TOKEN, which is what the pipeline
+# pushes with. `workflow_run` does work, but it went dead for several minutes
+# after this workflow was first added to the default branch — new listeners take
+# a while to register, and a sweep in that window publishes nothing with no
+# indication why. A direct call is deterministic from the first run.
+#
+# Pages must be enabled once per repository (Settings -> Pages -> Source: GitHub
+# Actions). The preflight below tries to do it for you, which works when a token
+# with admin rights is available, but GITHUB_TOKEN cannot create a Pages site
+# even with `pages: write` — that permission covers deploying to an existing
+# site, not creating one. When it can't, the job explains and exits green rather
+# than painting the repo red.
+name: pages
+on:
+  workflow_call: {}
+  push:
+    branches: [main]
+    paths: ['docs/**']      # hand edits to the dashboard (a human push, so this fires)
+  workflow_dispatch: {}
+concurrency: {group: pages, cancel-in-progress: true}
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Is Pages usable here?
+        id: preflight
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pages" >/dev/null 2>&1; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Try anyway — succeeds if a token with admin rights is in play. It
+          # won't be for the stock GITHUB_TOKEN, whose `pages: write` covers
+          # deploying to an existing site but not creating one.
+          err=$(gh api --method POST "repos/$GITHUB_REPOSITORY/pages" \
+                  -f "build_type=workflow" 2>&1) && {
+            echo "::notice::Enabled GitHub Pages for $GITHUB_REPOSITORY."
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          echo "API said: $err"
+          echo "::warning::Dashboard not published — GitHub Pages is not enabled for $GITHUB_REPOSITORY. Enable it once: Settings -> Pages -> Source: GitHub Actions. Then re-run this workflow. (Pages needs a public repo, or a paid plan for private ones.) Everything else in the sweep succeeded; docs/index.html is committed and openable locally meanwhile."
+
+      - uses: actions/checkout@v4
+        if: steps.preflight.outputs.ready == 'true'
+        with:
+          # The sweep commits docs/ during the caller's earlier job, so take the
+          # branch tip rather than the SHA this run started from.
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/configure-pages@v5
+        if: steps.preflight.outputs.ready == 'true'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.preflight.outputs.ready == 'true'
+        with: {path: docs}
+
+      - id: deploy
+        if: steps.preflight.outputs.ready == 'true'
+        uses: actions/deploy-pages@v4

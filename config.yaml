@@ -1,0 +1,130 @@
+# ARGUS configuration. Fork this repo and make it yours:
+#   * set `title`, `digest.recipient`
+#   * edit registry/sources.yaml (your queries, journals, feeds, keywords)
+#   * edit `tags` (your workstreams) and prompts/research.md (your profile+rubric)
+#   * pick a scoring provider below (several are free)
+title: "ARGUS"
+
+window_days: 7          # collectors ignore items older than this
+render_days: 14         # dashboard shows items from this window
+
+# How items get scored. `llm` uses whichever provider you name below; `keyword`
+# is the $0 fallback and needs no key at all. Either way, a missing API key
+# degrades to keyword scoring rather than failing the run.
+#
+# provider presets (see argus/providers.py, README for the full table):
+#   anthropic  ANTHROPIC_API_KEY   claude-haiku-4-5                    ~$1/$5 per Mtok
+#   groq       GROQ_API_KEY        llama-3.3-70b-versatile             FREE tier
+#   gemini     GEMINI_API_KEY      gemini-2.0-flash                    FREE tier
+#   openrouter OPENROUTER_API_KEY  ...:free models                     FREE
+#   openai     OPENAI_API_KEY      gpt-4o-mini
+#   deepseek   DEEPSEEK_API_KEY    deepseek-chat
+#   together   TOGETHER_API_KEY    Llama-3.3-70B-Instruct-Turbo
+#   ollama     (no key)            llama3.1          local only — `make run`, not Actions
+# Any other OpenAI-compatible endpoint works too: set provider to a name of
+# your choosing plus `base_url` and `api_key_env`.
+scoring:
+  mode: llm             # llm | keyword
+  provider: anthropic
+  model: claude-haiku-4-5   # omit to take the provider's default
+  # base_url:           # only for a provider not in the preset table
+  # api_key_env:        # ditto — the env var holding the key
+  batch_size: 20
+  max_llm_items_per_run: 150
+
+  # Peer-reviewed work is structurally handicapped and this corrects for it.
+  # OpenAlex carries no abstract for 60-82% of recent articles from the large
+  # commercial publishers (Elsevier deposits none to Crossref either), while
+  # arXiv always has one — so a journal paper gets judged on its title while a
+  # preprint gets judged on a full abstract. Measured here before this existed:
+  # arXiv was 57% of everything above threshold.
+  # Set both to 0 to rank purely on content, or raise `preprint` above 0 if you
+  # would rather see preprints first.
+  venue_weight:
+    enabled: true
+    peer_reviewed: 1        # published in a journal
+    preprint: -1            # arXiv and other repositories
+    no_abstract_offset: 1   # extra for a journal paper whose abstract is missing,
+                            # since it was scored on a title alone
+
+# Journal metadata frequently omits abstracts; try to recover them by DOI from
+# Crossref. Free, no key. Gives up automatically after 10 consecutive misses —
+# Elsevier deposits no abstracts, so for an Elsevier-heavy watchlist this costs
+# ~10 requests once per run and then stops. Worth leaving on: it does work for
+# MDPI, Springer, Wiley, IEEE and Taylor & Francis.
+crossref_backfill:
+  enabled: true
+  limit: 60
+
+prompt: prompts/research.md
+
+# Reference documents. Drop a concept note, proposal, chapter outline or reading
+# list into context/ and its text is appended to the scoring prompt, so items
+# are judged against your actual project rather than a keyword list. Usually the
+# highest-leverage tuning available — a two-page concept note says more about
+# what you care about than any number of query strings.
+# Plain text only (.md, .txt, .rst) and LLM scoring only; the keyword scorer
+# does not read them.
+context:
+  enabled: true
+  dir: context
+  max_chars: 24000      # whole block is truncated here, so a big drop can't
+                        # blow the context window or the bill
+
+# Relevance floors, on the scorer's 0-10 scale. Nothing below `show_threshold`
+# is ever displayed — an empty dashboard is a valid, expected outcome, not a
+# failure, and nothing in ARGUS tries to hit a quota of items. Raise these to
+# make the radar pickier; lower them to see more.
+show_threshold: 6       # dashboard floor (and the digest floor, unless digest.min_score is set)
+highlight_threshold: 8  # "Top Picks" band on the dashboard
+
+# Workstreams — the tags the scorer assigns. Colors are Paul Tol *vibrant*.
+# Replace these with your own field's themes (keep keys in sync with the prompt).
+tags:
+  planning:          {label: "Planning & modeling",   color: "#0077BB"}
+  market-reform:     {label: "Market reform",         color: "#33BBEE"}
+  industrial-power:  {label: "Industrial power",      color: "#CC3311"}
+  regional:          {label: "Regional & cross-border", color: "#009988"}
+  stakeholder:       {label: "Stakeholder intel",     color: "#EE7733"}
+  methods:           {label: "Methods & tools",       color: "#EE3377"}
+
+digest:
+  enabled: true
+  send_hour_utc: 0
+  recipient: you@university.edu
+  # min_score: 8        # email floor; defaults to show_threshold. Raise it to
+                        # keep the daily email tighter than the dashboard.
+                        # Zero qualifying items = no email that day.
+  synthesis: none       # none | llm — a one-paragraph intro on top of the digest
+  # By default synthesis reuses the scoring provider above. Override either:
+  # synthesis_provider: anthropic
+  synthesis_model: claude-sonnet-4-6
+
+prune:
+  keep_days: 180        # drop below-threshold items older than this
+  keep_run_days: 30     # trim the per-source run log; only the last 3 entries
+                        # per source are ever read (failure detection)
+
+# Library-seeded discovery (opt-in): study your Zotero library, then surface the
+# recent papers that CITE it or are by the authors you read most. digest.py pulls
+# the top `top_n` into a "From your library" section. Only DOIs are sent to
+# OpenAlex; the library itself never leaves the machine / is never committed.
+library:
+  enabled: true
+  source: zotero_api        # zotero_api (auto, no manual export) | bib (local file)
+  every_days: 7             # run the library sweep at most weekly (it's a shortlist)
+  top_n: 30                 # size of the "From your library" digest shortlist
+
+  # -- source: zotero_api -- fetch the library from zotero.org each run.
+  # Create a READ-ONLY key at zotero.org/settings/keys and add it as the
+  # ZOTERO_API_KEY Actions secret. Find your numeric id at zotero.org/settings/keys
+  # (personal "userID") or on the group page URL (group id).
+  zotero_library_type: user   # user (personal library) | group (shared lab library)
+  zotero_library_id: "SET_ME"   # numeric Zotero userID (the API key lives in ZOTERO_API_KEY, never here)
+
+  # -- source: bib -- alternatively, a local export at this path (gitignored).
+  bib_path: library/zotero.bib
+
+  discovery_days: 120       # lookback for citing papers / your authors' new work
+  max_authors: 15           # follow this many of your most-read authors
+  max_seed_works: 200       # cap library works used for citation discovery
