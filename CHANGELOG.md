@@ -9,6 +9,18 @@ publish a tag that disagrees with it.
 
 ## [Unreleased]
 
+### Added
+
+- **A master switch: `enabled` in `config.yaml`.** `false` means scheduled
+  sweeps do nothing — no collection, no scoring, no commit — while a manual run
+  of the pipeline workflow still works. Checked in a cheap `gate` job before any
+  dependency install, so a switched-off repository costs seconds rather than a
+  full sweep. `--force` overrides it locally.
+- The template now ships with `enabled: false`. It was sweeping every 8 hours
+  for the example field, and — worse — whatever it collected became the starting
+  data of every repository created from it. The committed database and dashboard
+  are reset to empty for the same reason.
+
 ## [1.3.0] — 2026-08-09
 
 ### Added

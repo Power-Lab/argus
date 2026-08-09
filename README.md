@@ -36,7 +36,11 @@ prints which scorer it actually used.
    few-shot examples for your work. This is the system prompt used for LLM scoring.
 4. **Pick a scorer** — see the table below. The free keyword scorer needs
    nothing; an LLM scorer needs one API key, and several are free.
-5. **Turn on Actions and Pages.** Two one-time switches in your fork:
+5. **Switch it on.** `config.yaml` ships with `enabled: false`, so a fresh
+   copy doesn't sweep for the example field before it's yours. Set
+   `enabled: true` when steps 1-3 are done. (A manual run of the pipeline
+   workflow always works, switch or no switch, if you want to try one first.)
+6. **Turn on Actions and Pages.** Two one-time switches in your fork:
    - **Actions** tab → enable workflows (forks start with them disabled).
    - **Settings → Pages → Source: GitHub Actions** — needed once before the
      dashboard can publish. Skip it and everything still works; the sweep just

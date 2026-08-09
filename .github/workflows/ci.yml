@@ -41,10 +41,11 @@ jobs:
           print(f'argus {argus.__version__} — config OK, {len(cfg[\"tags\"])} workstreams')
           "
       # Proves the "works with no API key" promise, writing outside the repo so
-      # the committed dashboard is never touched by a test run.
+      # the committed dashboard is never touched by a test run. --force because
+      # the template ships with the sweep switched off; CI must still exercise it.
       - name: Pipeline runs end-to-end with no secrets at all
         run: |
-          python -m argus.run --stage score  --db "$RUNNER_TEMP/ci.db"
-          python -m argus.run --stage render --db "$RUNNER_TEMP/ci.db" --out "$RUNNER_TEMP/index.html"
+          python -m argus.run --stage score  --db "$RUNNER_TEMP/ci.db" --force
+          python -m argus.run --stage render --db "$RUNNER_TEMP/ci.db" --out "$RUNNER_TEMP/index.html" --force
           grep -q "<title>" "$RUNNER_TEMP/index.html"
           git diff --exit-code   # a test run must leave the tree clean

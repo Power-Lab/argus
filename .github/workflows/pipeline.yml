@@ -14,7 +14,32 @@ permissions:
   id-token: write   # required by actions/deploy-pages
   issues: write     # open a failure alert
 jobs:
+  # The master switch, read before anything expensive happens. A disabled repo
+  # spends a few seconds here and nothing else — no dependency install, no
+  # collection, no Pages deploy. A manual dispatch runs regardless, so you can
+  # always try a sweep without editing config.
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "manual dispatch — running regardless of the config switch"
+          elif grep -qiE '^enabled:[[:space:]]*(false|no|off)([[:space:]]*#.*)?$' config.yaml; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Scheduled sweep is switched off. Set 'enabled: true' in config.yaml once your sources are configured. Run this workflow manually to try a one-off sweep."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
   run:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20   # a wedged collector should fail the run, not hang for 6h
     steps:
@@ -81,10 +106,12 @@ jobs:
     uses: ./.github/workflows/pages.yml
     permissions: {contents: read, pages: write, id-token: write}
 
-  # `always()` so a failed sweep still alerts — that is the entire point.
+  # `always()` so a failed sweep still alerts — that is the entire point. Gated
+  # on the switch too, so a deliberately-off repo doesn't spin a runner to
+  # report that nothing happened.
   alert:
-    needs: run
-    if: always()
+    needs: [gate, run]
+    if: always() && needs.gate.outputs.enabled == 'true'
     uses: ./.github/workflows/alert.yml
     with: {conclusion: "${{ needs.run.result }}"}
     permissions: {contents: read, issues: write}

@@ -34,6 +34,21 @@ def _read(path: str) -> str:
         return f.read()
 
 
+def enabled(cfg: dict) -> bool:
+    """Is the sweep switched on? Defaults to True, so an existing config that
+    predates this switch keeps running.
+
+    The template ships with it off. Two reasons: a template shouldn't burn
+    Actions minutes collecting for an example field nobody is reading, and
+    whatever it collected would otherwise become the starting data of every
+    repository created from it.
+    """
+    value = cfg.get("enabled", True)
+    if isinstance(value, str):
+        return value.strip().lower() not in ("false", "no", "off", "0", "")
+    return bool(value)
+
+
 def _library_due(conn, lib_cfg: dict) -> bool:
     """Library discovery runs at most every `every_days` (default 7) — it's a
     weekly shortlist, not something to rebuild every 4h. dry-run (conn=None) always runs."""
@@ -136,6 +151,16 @@ def score(conn, cfg: dict, kw: dict, mode: str, spec: dict) -> dict:
 
 def run_pipeline(args) -> int:
     cfg = _load_yaml(args.config)
+
+    # The master switch. Off means a scheduled sweep does nothing at all: no
+    # collection, no scoring, no commit. `--force` overrides it so you can still
+    # try a run by hand without editing config.
+    if not enabled(cfg) and not args.force:
+        print("sweep disabled — config.yaml has `enabled: false`. "
+              "Set it to true once your sources are configured, "
+              "or run with --force for a one-off.")
+        return 0
+
     sources = _load_yaml(os.path.join(ROOT, "registry", "sources.yaml"))
     kw = sources.get("keywords", {})
     window_days = cfg.get("window_days", 7)
@@ -195,6 +220,8 @@ def main(argv=None) -> int:
     p.add_argument("--db", default=None)
     p.add_argument("--out", default=None, help="dashboard path (default docs/index.html)")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--force", action="store_true",
+                   help="run even when config.yaml has `enabled: false`")
     p.add_argument("--vacuum", action="store_true",
                    help="reclaim space after pruning (rewrites the whole file — occasional, not scheduled)")
     p.add_argument("--force-digest", action="store_true")

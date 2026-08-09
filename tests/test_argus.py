@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from argus import store, filter as flt, render, digest, providers, context
+from argus import store, filter as flt, render, digest, providers, context, run as run_mod
 from argus.net import normalize_url
 from argus.collectors import library
 from argus.collectors.library import parse_dois
@@ -444,3 +444,39 @@ def test_dashboard_excludes_library_items(tmp_path):
     html = open(render.render(conn, sample_cfg(), str(tmp_path / "index.html")), encoding="utf-8").read()
     assert "Public arxiv paper" in html
     assert "MY-LIBRARY-only paper" not in html   # library items are digest-only
+
+
+def test_master_switch_defaults_to_on_and_parses_yaml_falsey():
+    """A config predating this switch must keep running."""
+    assert run_mod.enabled({}) is True
+    assert run_mod.enabled({"enabled": True}) is True
+    for off in (False, "false", "False", "no", "off", "0", ""):
+        assert run_mod.enabled({"enabled": off}) is False, off
+    for on in (True, "true", "yes", "on"):
+        assert run_mod.enabled({"enabled": on}) is True, on
+
+
+def test_disabled_sweep_does_nothing_but_force_overrides(tmp_path, capsys, monkeypatch):
+    """Off must mean no collection and no writes — not merely no commit."""
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("enabled: false\nshow_threshold: 6\nhighlight_threshold: 8\n"
+                   "tags: {methods: {label: M, color: '#000'}}\nscoring: {mode: keyword}\n"
+                   "digest: {enabled: false}\nprompt: prompts/research.md\n", encoding="utf-8")
+    db = tmp_path / "out.db"
+
+    called = []
+    monkeypatch.setattr(run_mod, "collect_all", lambda *a, **k: called.append(1) or ([], []))
+
+    assert run_mod.main(["--config", str(cfg), "--db", str(db), "--stage", "collect"]) == 0
+    assert "sweep disabled" in capsys.readouterr().out
+    assert called == []            # never collected
+    assert not db.exists()         # never even opened the database
+
+    assert run_mod.main(["--config", str(cfg), "--db", str(db), "--stage", "collect", "--force"]) == 0
+    assert called == [1]           # --force runs it
+
+
+def test_shipped_config_has_the_switch_off_for_the_template():
+    """The template must not sweep: whatever it collected would become the
+    starting data of every repository created from it."""
+    assert run_mod.enabled(sample_cfg()) is False
