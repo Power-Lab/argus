@@ -13,6 +13,10 @@ file. Works with **no API key** (keyword scoring) and **no email** (dashboard
 only) — every capability degrades cleanly when its secret is absent, and a run
 prints which scorer it actually used.
 
+> **A fresh copy starts switched off.** `config.yaml` ships with
+> `enabled: false` so it doesn't sweep for the example field before it's yours.
+> Set `enabled: true` once your sources are configured — step 5 below.
+
 > This is a **fork-per-person template**. Each researcher runs their own copy,
 > pointed at their own topics. It ships configured for one example field
 > (Southeast-Asia power systems) so it runs out of the box — replace that config
@@ -197,11 +201,25 @@ your scoring provider unless `digest.synthesis_provider` says otherwise.
 ```bash
 make install    # pip install -r requirements.txt
 make dry-run    # collect + per-source counts, no writes
-make run        # full pipeline
+make run        # full pipeline   (ARGS=--force while `enabled: false`)
 make test       # offline unit tests — no network, no keys
 make journals   # find a journal's ISSN by name, or audit your watchlist
 make vacuum     # reclaim DB space after pruning (occasional; see below)
 open docs/index.html
+```
+
+### Pausing it
+
+`enabled: false` in `config.yaml` stops scheduled sweeps entirely — no
+collection, no scoring, no commits. Useful for a template, and equally for going
+on leave or quieting a radar you're mid-way through retuning.
+
+It's checked before anything expensive happens, so a paused repo costs a few
+seconds per schedule rather than a full sweep. Running the pipeline workflow
+**manually still works** either way, and locally you can force one:
+
+```bash
+make run ARGS=--force
 ```
 
 ### Sweep cadence and the commit log
