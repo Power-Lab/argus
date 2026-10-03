@@ -5,6 +5,8 @@ import sqlite3
 import sys
 from datetime import datetime, timezone, timedelta
 
+import pytest
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
@@ -476,7 +478,14 @@ def test_disabled_sweep_does_nothing_but_force_overrides(tmp_path, capsys, monke
     assert called == [1]           # --force runs it
 
 
+@pytest.mark.skipif(os.environ.get("ARGUS_IS_TEMPLATE") != "true",
+                    reason="guards the template repo only; copies are meant to switch it on")
 def test_shipped_config_has_the_switch_off_for_the_template():
     """The template must not sweep: whatever it collected would become the
-    starting data of every repository created from it."""
+    starting data of every repository created from it.
+
+    Only meaningful in the template itself. Every repository created from it
+    inherits this test, and README step 5 tells them to set `enabled: true` —
+    unguarded, that turns their CI red for following the instructions. CI sets
+    ARGUS_IS_TEMPLATE from GitHub's own `is_template` flag."""
     assert run_mod.enabled(sample_cfg()) is False

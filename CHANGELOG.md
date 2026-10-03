@@ -9,6 +9,15 @@ publish a tag that disagrees with it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Switching a sweep on no longer fails CI in your copy.** The test asserting
+  the shipped config has `enabled: false` was inherited by every repository
+  created from the template, so following README step 5 (`enabled: true`) turned
+  its CI red. The test now runs only in the template repository itself, keyed on
+  GitHub's `is_template` flag. If your copy flipped the switch back off to get
+  CI green, take this fix and set `enabled: true` again.
+
 ## [1.4.0] — 2026-08-09
 
 ### Added
