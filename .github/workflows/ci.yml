@@ -28,6 +28,10 @@ jobs:
       - run: pip install -r requirements.txt pytest
       - name: Unit tests
         run: python -m pytest tests/ -q     # offline: no network, no API keys
+        env:
+          # "true" only in the template repo itself, which keeps its sweep
+          # switched off; repositories created from it are free to turn theirs on.
+          ARGUS_IS_TEMPLATE: ${{ github.event.repository.is_template }}
       - name: Config and registry parse
         run: |
           python -c "
